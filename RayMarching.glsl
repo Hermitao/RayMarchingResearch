@@ -7,25 +7,70 @@ const int MAX_MARCHING_STEPS = 255;
 const float MIN_DIST = 0.01;
 const float MAX_DIST = 1000.0;
 const float EPSILON = 0.0001;
+float Power = 9.0;
+const int Iterations = 15;
+const float Bailout = 2.0;
 
 
 /**
- * Signed distance function for a cube centered at the origin
- * with dimensions specified by size.
+ * Constructive solid geometry intersection operation on SDF-calculated distances.
  */
-float boxSDF(vec3 p, vec3 size) {
-    vec3 d = abs(p) - (size / 2.0);
-    
-    // Assuming p is inside the cube, how far is it from the surface?
-    // Result will be negative or zero.
-    float insideDistance = min(max(d.x, max(d.y, d.z)), 0.0);
-    
-    // Assuming p is outside the cube, how far is it from the surface?
-    // Result will be positive or zero.
-    float outsideDistance = length(max(d, 0.0));
-    
-    return insideDistance + outsideDistance;
+float intersectSDF(float distA, float distB) {
+    return max(distA, distB);
 }
+
+/**
+ * Constructive solid geometry union operation on SDF-calculated distances.
+ */
+float unionSmoothSDF(float distA, float distB, float k) {
+    float h = max( k-abs(distA-distB) , 0.0 ) / k;
+    return min(distA, distB) - h*h*h*k*1.0/6.0;
+}
+
+float unionSDF(float distA, float distB) {
+    return min(distA, distB);
+}
+
+
+/**
+ * Constructive solid geometry difference operation on SDF-calculated distances.
+ */
+float differenceSDF(float distA, float distB) {
+    return max(distA, -distB);
+}
+
+float DE(vec3 pos) {
+	vec3 z = pos;
+	float dr = 1.0;
+	float r = 0.0;
+	for (int i = 0; i < Iterations ; i++) {
+		r = length(z);
+		if (r>Bailout) break;
+		
+		// convert to polar coordinates
+		float theta = acos(z.z/r);
+		float phi = atan(z.y,z.x);
+		dr =  pow( r, Power-1.0)*Power*dr + 1.0;
+		
+		// scale and rotate the point
+		float zr = pow( r,Power);
+		theta = theta*Power;
+		phi = phi*Power;
+		
+		// convert back to cartesian coordinates
+		z = zr*vec3(sin(theta)*cos(phi), sin(phi)*sin(theta), cos(theta));
+		z+=pos;
+	}
+	return 0.5*log(r)*r/dr;
+}
+
+
+float sdBox( vec3 p, vec3 b )
+{
+  vec3 q = abs(p) - b;
+  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
+}
+
 
 float sphereSDF(vec3 p, float r, vec3 eye)
 {
@@ -33,18 +78,39 @@ float sphereSDF(vec3 p, float r, vec3 eye)
     return length(p - dir*r - eye);
 }
 
+float sphereSDFOrigin(vec3 p, float r)
+{
+    return length(p)-r;
+}
+
 float sceneSDF(vec3 eye)
 {
-    vec3 spherePos1 = vec3(5.0, 5.0, 5.0);
-    float sphereRadius1 = 1.0;
+    float sphere1Radius = 1.0;
     
-    vec3 spherePos2 = vec3(5.5, 5.0, 5.0);
-    float sphereRadius2 = 0.75;
+    float sphere2Radius = 0.75;
+    vec3 sphere2Offset = vec3(sin(iTime * 0.4838) * 1.2, sin(iTime * 0.3234) *2.2, sin(iTime) * 3.0);
     
-    return min(sphereSDF(spherePos1, sphereRadius1, eye), sphereSDF(spherePos2, sphereRadius2, eye));
+    float balls = sphereSDFOrigin(eye, sphere1Radius);
+    balls = unionSmoothSDF(balls, sphereSDFOrigin(eye + sphere2Offset, sphere2Radius), 2.0);
+
+    float box = sdBox(eye + vec3(0.0, 0.0, sin(iTime) * 3.0), vec3(0.5, 0.5, 0.5));
+
+    //return min(sphereSDF(spherePos1, sphereRadius1, eye), sphereSDF(spherePos2, sphereRadius2, eye));
+    return unionSmoothSDF(balls, box, 2.0);
     
+    //return DE(eye);
+
     //return boxSDF(eye, vec3(1.0, 0.5, 1.0)) * -1.0;
 }
+
+vec3 estimateNormal(vec3 p) {
+    return normalize(vec3(
+        sceneSDF(vec3(p.x + EPSILON, p.y, p.z)) - sceneSDF(vec3(p.x - EPSILON, p.y, p.z)),
+        sceneSDF(vec3(p.x, p.y + EPSILON, p.z)) - sceneSDF(vec3(p.x, p.y - EPSILON, p.z)),
+        sceneSDF(vec3(p.x, p.y, p.z  + EPSILON)) - sceneSDF(vec3(p.x, p.y, p.z - EPSILON))
+    ));
+}
+
 
 float shortestDistanceToSurface(vec3 eye, vec3 marchingDir, float start, float end)
 {
@@ -91,10 +157,11 @@ mat3 viewMatrix(vec3 eye, vec3 center, vec3 up) {
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
+    Power = ((sin(iTime) * 0.5 + 0.5) + 1.0) * 10.0;
     vec3 viewDir = rayDirection(45.0, iResolution.xy, fragCoord);
-    vec3 eye = vec3(sin(iTime * 0.32) * 9.0, 0.0 * cos(iTime * 0.633), 0.0);
+    vec3 eye = vec3(2.0 + 9.0, 0.0 * cos(iTime * 0.633), 0.0);
     
-    mat3 viewToWorld = viewMatrix(eye, vec3(5.0, 5.0, 5.0), vec3(0.0, 1.0, 0.0));
+    mat3 viewToWorld = viewMatrix(eye, vec3(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
     vec3 worldDir = viewToWorld * viewDir;
 
     float dist = shortestDistanceToSurface(eye, worldDir, MIN_DIST, MAX_DIST);
@@ -111,6 +178,9 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     float colLerper = 50.0;
     vec3 col = vec3(dist / colLerper);
+    
+    vec3 p = eye + dist * worldDir;
+    vec3 K_a = (estimateNormal(p) + vec3(1.0)) / 2.0;
 
-    fragColor = vec4(col,1.0);
+    fragColor = vec4(K_a,1.0);
 }
