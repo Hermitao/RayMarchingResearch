@@ -112,7 +112,7 @@ vec3 estimateNormal(vec3 p) {
 }
 
 
-float shortestDistanceToSurface(vec3 eye, vec3 marchingDir, float start, float end)
+vec2 shortestDistanceToSurface(vec3 eye, vec3 marchingDir, float start, float end)
 {
     float depth = start;
     for (int i = 0; i < MAX_MARCHING_STEPS; ++i)
@@ -120,17 +120,17 @@ float shortestDistanceToSurface(vec3 eye, vec3 marchingDir, float start, float e
         float dist = sceneSDF(eye + depth * marchingDir);
         if (dist < EPSILON)
         {
-            return depth;
+            return vec2(depth, float(i));
         }
         
         depth += dist;
         
         if (depth > MAX_DIST)
         {
-            return end;
+            return vec2(end, -1.0);
         }
     }
-    return end;
+    return vec2(end, -1.0);
 }
 
 vec3 rayDirection(float fov, vec2 size, vec2 fragCoord)
@@ -164,7 +164,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     mat3 viewToWorld = viewMatrix(eye, vec3(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
     vec3 worldDir = viewToWorld * viewDir;
 
-    float dist = shortestDistanceToSurface(eye, worldDir, MIN_DIST, MAX_DIST);
+    vec2 data = shortestDistanceToSurface(eye, worldDir, MIN_DIST, MAX_DIST);
+    float dist = data.x;
     if (dist > MAX_DIST - EPSILON)
     {
         fragColor = vec4(0.0, 0.0, 0.0, 0.0);
@@ -182,5 +183,14 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec3 p = eye + dist * worldDir;
     vec3 K_a = (estimateNormal(p) + vec3(1.0)) / 2.0;
 
-    fragColor = vec4(K_a,1.0);
+    float outline = data.y / 255.0 * 255.0;
+    
+    if (data.y < 30.0)
+    {
+        fragColor = vec4(K_a,1.0);
+    }
+    else
+    {
+        fragColor = vec4(K_a * outline, 1.0);
+    }
 }
