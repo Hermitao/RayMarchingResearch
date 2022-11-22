@@ -8,7 +8,7 @@
 // http://blog.hvidtfeldts.net/index.php/2011/09/distance-estimated-3d-fractals-v-the-mandelbulb-different-de-approximations/
 
 
-const int MAX_MARCHING_STEPS = 20;
+const int MAX_MARCHING_STEPS = 200;
 const float MIN_DIST = 0.01;
 const float MAX_DIST = 1000.0;
 const float EPSILON = 0.0001;
@@ -162,11 +162,12 @@ mat3 viewMatrix(vec3 eye, vec3 center, vec3 up) {
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
-    Power = ((sin(iTime * 0.25) * 0.5 + 0.5) + 1.0) * 8.0;
+    Power = ((sin(iTime * 0.25) * 0.5 + 0.5) + 1.0) * 4.0;
     //Power = 8.0;
-    //Power = iTime * -5.0;
+    //Power = iTime * 2.0;
     vec3 viewDir = rayDirection(45.0, iResolution.xy, fragCoord);
-    vec3 eye = vec3(sin(iTime * 0.1) * 12.0, sin(iTime * 0.1) * 12.0, 2.0);
+    vec3 eye = vec3(sin(iTime * 0.2) * 12.0, 0.0, 3.0);
+    eye = vec3(0.5, 0.2, 5.0);
     
     mat3 viewToWorld = viewMatrix(eye, vec3(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
     vec3 worldDir = viewToWorld * viewDir;
@@ -193,6 +194,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     float outline = data.y / 255.0 * 255.0;
     
 
-    fragColor = vec4(K_a,1.0);
+    fragColor = vec4(K_a, 1.0);
+    //fragColor = vec4(linearDepth, linearDepth, linearDepth, 1.0);
 
 }
