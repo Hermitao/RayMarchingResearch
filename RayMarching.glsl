@@ -2,8 +2,13 @@
 //
 // REFERENCE
 // https://www.shadertoy.com/view/4tcGDr
+// https://www.youtube.com/watch?v=Cp5WWtMoeKg
+// https://github.com/SebLague/Ray-Marching
+// https://iquilezles.org/articles/distfunctions/
+// http://blog.hvidtfeldts.net/index.php/2011/09/distance-estimated-3d-fractals-v-the-mandelbulb-different-de-approximations/
 
-const int MAX_MARCHING_STEPS = 255;
+
+const int MAX_MARCHING_STEPS = 20;
 const float MIN_DIST = 0.01;
 const float MAX_DIST = 1000.0;
 const float EPSILON = 0.0001;
@@ -98,7 +103,7 @@ float sceneSDF(vec3 eye, vec3 worldDir)
     //return min(sphereSDF(spherePos1, sphereRadius1, eye), sphereSDF(spherePos2, sphereRadius2, eye));
     //return unionSmoothSDF(balls, box, 2.0);
     
-    return DE(worldDir);
+    return DE(worldDir + eye);
 
     //return boxSDF(eye, vec3(1.0, 0.5, 1.0)) * -1.0;
 }
@@ -159,8 +164,9 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
     Power = ((sin(iTime * 0.25) * 0.5 + 0.5) + 1.0) * 8.0;
     //Power = 8.0;
+    //Power = iTime * -5.0;
     vec3 viewDir = rayDirection(45.0, iResolution.xy, fragCoord);
-    vec3 eye = vec3(0.0, 0.0, 10.0);
+    vec3 eye = vec3(sin(iTime * 0.5) * 12.0, 0.0, 5.0);
     
     mat3 viewToWorld = viewMatrix(eye, vec3(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
     vec3 worldDir = viewToWorld * viewDir;
