@@ -83,7 +83,7 @@ float sphereSDFOrigin(vec3 p, float r)
     return length(p)-r;
 }
 
-float sceneSDF(vec3 eye)
+float sceneSDF(vec3 eye, vec3 worldDir)
 {
     float sphere1Radius = 1.0;
     
@@ -96,18 +96,18 @@ float sceneSDF(vec3 eye)
     float box = sdBox(eye + vec3(0.0, 0.0, sin(iTime) * 3.0), vec3(0.5, 0.5, 0.5));
 
     //return min(sphereSDF(spherePos1, sphereRadius1, eye), sphereSDF(spherePos2, sphereRadius2, eye));
-    return unionSmoothSDF(balls, box, 2.0);
+    //return unionSmoothSDF(balls, box, 2.0);
     
-    //return DE(eye);
+    return DE(worldDir);
 
     //return boxSDF(eye, vec3(1.0, 0.5, 1.0)) * -1.0;
 }
 
-vec3 estimateNormal(vec3 p) {
+vec3 estimateNormal(vec3 p, vec3 worldDir) {
     return normalize(vec3(
-        sceneSDF(vec3(p.x + EPSILON, p.y, p.z)) - sceneSDF(vec3(p.x - EPSILON, p.y, p.z)),
-        sceneSDF(vec3(p.x, p.y + EPSILON, p.z)) - sceneSDF(vec3(p.x, p.y - EPSILON, p.z)),
-        sceneSDF(vec3(p.x, p.y, p.z  + EPSILON)) - sceneSDF(vec3(p.x, p.y, p.z - EPSILON))
+        sceneSDF( vec3(p.x + EPSILON, p.y, p.z) - sceneSDF( vec3(p.x - EPSILON, p.y, p.z), worldDir ) , worldDir),
+        sceneSDF( vec3(p.x, p.y + EPSILON, p.z) - sceneSDF( vec3(p.x, p.y - EPSILON, p.z), worldDir ), worldDir),
+        sceneSDF( vec3(p.x, p.y, p.z + EPSILON) - sceneSDF(vec3(p.x, p.y, p.z - EPSILON), worldDir ), worldDir)
     ));
 }
 
@@ -117,7 +117,7 @@ vec2 shortestDistanceToSurface(vec3 eye, vec3 marchingDir, float start, float en
     float depth = start;
     for (int i = 0; i < MAX_MARCHING_STEPS; ++i)
     {
-        float dist = sceneSDF(eye + depth * marchingDir);
+        float dist = sceneSDF(eye + depth * marchingDir, marchingDir);
         if (dist < EPSILON)
         {
             return vec2(depth, float(i));
@@ -157,9 +157,10 @@ mat3 viewMatrix(vec3 eye, vec3 center, vec3 up) {
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
-    Power = ((sin(iTime) * 0.5 + 0.5) + 1.0) * 10.0;
+    Power = ((sin(iTime * 0.25) * 0.5 + 0.5) + 1.0) * 8.0;
+    //Power = 8.0;
     vec3 viewDir = rayDirection(45.0, iResolution.xy, fragCoord);
-    vec3 eye = vec3(2.0 + 9.0, 0.0 * cos(iTime * 0.633), 0.0);
+    vec3 eye = vec3(0.0, 0.0, 10.0);
     
     mat3 viewToWorld = viewMatrix(eye, vec3(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
     vec3 worldDir = viewToWorld * viewDir;
@@ -181,16 +182,11 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec3 col = vec3(dist / colLerper);
     
     vec3 p = eye + dist * worldDir;
-    vec3 K_a = (estimateNormal(p) + vec3(1.0)) / 2.0;
+    vec3 K_a = (estimateNormal(p, worldDir) + vec3(1.0)) / 2.0;
 
     float outline = data.y / 255.0 * 255.0;
     
-    if (data.y < 30.0)
-    {
-        fragColor = vec4(K_a,1.0);
-    }
-    else
-    {
-        fragColor = vec4(K_a * outline, 1.0);
-    }
+
+    fragColor = vec4(K_a,1.0);
+
 }
