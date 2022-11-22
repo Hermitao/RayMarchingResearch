@@ -166,7 +166,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     //Power = 8.0;
     //Power = iTime * -5.0;
     vec3 viewDir = rayDirection(45.0, iResolution.xy, fragCoord);
-    vec3 eye = vec3(sin(iTime * 0.5) * 12.0, 0.0, 5.0);
+    vec3 eye = vec3(sin(iTime * 0.1) * 12.0, sin(iTime * 0.1) * 12.0, 2.0);
     
     mat3 viewToWorld = viewMatrix(eye, vec3(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
     vec3 worldDir = viewToWorld * viewDir;
